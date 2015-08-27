@@ -128,8 +128,22 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		plt.title('intervals distribuiton (hist)')
 		plt.xlabel('log intervals $\\log \left( \\Delta t \\right)$')
 		plt.ylabel('N(dt)')
-		
-		
+		#
+		# shear stress time-series.
+		figs+=[plt.figure(len(figs)+fnum_0)]
+		f=figs[-1]
+		f.clf()
+		ax=f.gca()
+		#ax.set_xscale('log')
+		ax.plot(events['event_year'], (events['event_shear_final'] - events['event_shear_init'])/(.5*(events['event_shear_init']+events['event_shear_final'])), '-', lw=2, zorder=4, label='mean stress change')
+		ax.plot([events['event_year'][0], events['event_year'][-1]], [0., 0.], '-k', lw=1.5, zorder=5, alpha=.5)
+		ax2 = ax.twinx()
+		ax2.plot(events['event_year'], (.5*(events['event_shear_final']+events['event_shear_init'])), 'b-', lw=2, zorder=4, label='shear_mean')
+		ax2.plot(events['event_year'], events['event_shear_init'], 'r-', lw=2, zorder=4, label='shear_init')
+		ax2.plot(events['event_year'], events['event_shear_final'], 'g-', lw=2, zorder=4, label='shear_final')
+		ax2.legend(loc=0, numpoints=1)
+		#	
+	#
 	return h_cum
 #
 #def plot_recurrence(
