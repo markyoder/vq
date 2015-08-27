@@ -118,12 +118,6 @@ void solve_it(int n, double *x, double *A, double *b) {
 }
 
 void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSweeps &sweeps) {
-    // yoder:  This bit of code is a likely candidate for the heisenbug/heisen_hang problem. basically, i think the is_root(),send/receive
-    // logic loop has a tendency to get hung up for complex operations. revise that code block, nominally into two "isRoot()" blocks.
-    // 1) first, distribute the A,B arrays (an array and a vector) between the nodes.
-    // 2) then, multiply, etc.
-    // 3) then redistribute the result back to the various nodes.
-    // basically move the second part of the isRoot() (don't recall how the not isRoot() block looks) outside the send/recv block.
     //
     int             lid;
     BlockID         gid;
@@ -140,10 +134,9 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         // would a faster way to do this step be to look through the current event_sweeps list?
         //yes, but we're assuming that "original failure" has been processed,
         // which i think is a pretty safe bet. BUT, let's leave the original looping code in comment, to facilitate an easy recovery if this is a mistake.
-        // another possible concern is keepting track of local/global blocks. for now, let's leave this alone. it is a (relatively) small matter of optimization.
+        // another possible concern is keeping track of local/global blocks. for now, let's leave this alone. it is a (relatively) small matter of optimization.
         //lid = s_it->_element_id;
         gid = sim->getGlobalBID(lid);
-
         //
         // If the block has already failed (but not in this sweep) then adjust the slip
         // do we have the correct list of global failed elements?
@@ -156,17 +149,15 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
     //
     // use: global/local_secondary_id_list;
     // Figure out how many failures there were over all processors
-    //sim->distributeBlocks(local_id_list, global_id_list);
-    // can this somehow distribute a block to global_failed_elements twice? (multiple copies of same value?)
-    //sim->barrier();
+    //
     // yoder (note): after we distributeBlocks(), we can check to see that all items in local_ exist in global_ exactly once.
-    // if not, throw an exception... and then we'll figure out how this is happening. remember, local_ is like [gid, gig, gid...]
+    // if not, throw an exception... and then we'll figure out how this is happening. remember, local_ is like [gid, gid, gid...]
     // global_ is like [(gid, p_rank), (gid, p_rank)...], and each pair item is accessed like global_[rw_num]->first /->second
-    sim->distributeBlocks(local_secondary_id_list, global_secondary_id_list);
-    //sim->barrier();   //yoder: (debug)
-
+    //
+    //sim->distributeBlocks(local_id_list, global_id_list);
     //int num_local_failed = local_id_list.size();
     //int num_global_failed = global_id_list.size();
+    sim->distributeBlocks(local_secondary_id_list, global_secondary_id_list);
     int num_local_failed = local_secondary_id_list.size();
     int num_global_failed = global_secondary_id_list.size();
 
@@ -184,18 +175,18 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
                 A[i*num_global_failed+n] -= sim->getFriction(*it)*sim->getGreenNormal(*it, jt->first);
             }
         }
-
+        //
+        // yoder: here is (i think) where we might change our rupture physics, for example to use a 1/v (in our case, probably 1/slip) type friction
+        // law. for example, something like float frict = sim->getFriction*(1/(1+slip/slip_0))
         b[i] = sim->getCFF(*it)+sim->getFriction(*it)*sim->getRhogd(*it);
     }
-
-    //
-    // heisenbug/heisen_hang likely candidate...
-    //sim->barrier();     // yoder: (debug)
     //
     // so A,b are calculated for each local node (with dimension n_local x n_global and now they'll be consolidated on the root node. note that
     // the corresponding mpi_send comes after this block. the root node blocks until child nodes have sent A,b and root_node has received A,b.
     //
     /*
+    // this is a consistency check (of some sort) during the heisen_bug debugging. heisenbug turned out to be caused by using send() vs ssend().
+    // (this section and comments can be removed.)
     #ifdef MPI_C_FOUND
         // yoder (debug):
         // (but this does not appear to be the problem; this exception is not being thrown, and we're still getting heisen_hang).
