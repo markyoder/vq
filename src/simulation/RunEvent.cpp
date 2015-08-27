@@ -82,7 +82,7 @@ void RunEvent::processBlocksOrigFail(Simulation *sim, quakelib::ModelSweeps &swe
                                    b.getBlockID(),
                                    sim->getShearStress(gid),
                                    sim->getNormalStress(gid));
-
+            //
             sim->setSlipDeficit(gid, sim->getSlipDeficit(gid)+slip);
         }
     }
@@ -160,17 +160,16 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
     sim->distributeBlocks(local_secondary_id_list, global_secondary_id_list);
     int num_local_failed = local_secondary_id_list.size();
     int num_global_failed = global_secondary_id_list.size();
-
+	//
     double *A = new double[num_local_failed*num_global_failed];
     double *b = new double[num_local_failed];
     double *x = new double[num_local_failed];
-
     //
     // stress transfer (greens functions) between each local element and all global elements.
     for (i=0,it=local_secondary_id_list.begin(); it!=local_secondary_id_list.end(); ++i,++it) {
         for (n=0,jt=global_secondary_id_list.begin(); jt!=global_secondary_id_list.end(); ++n,++jt) {
             A[i*num_global_failed+n] = sim->getGreenShear(*it, jt->first);
-
+            //
             if (sim->doNormalStress()) {
                 A[i*num_global_failed+n] -= sim->getFriction(*it)*sim->getGreenNormal(*it, jt->first);
             }
@@ -255,14 +254,13 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
             MPI_Ssend(&(A[i*num_global_failed]), num_global_failed, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Ssend(&(b[i]), 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         }
-
         //
         // fetch x[i] from root (rank 0) node:
         //
         for (i=0; i<num_local_failed; ++i) {
             MPI_Recv(&(x[i]), 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
-
+    //
 #else
         assertThrow(false, "Single processor version of code, but processor MPI rank is non-zero.");
 #endif
@@ -347,17 +345,14 @@ void RunEvent::processStaticFailure(Simulation *sim) {
 
     //
     // While there are still failed blocks to handle
-    //sim->barrier();
     while (more_blocks_to_fail || final_sweep) {
         // write stress, slip, etc. to events and sweeps output (text or hdf5).
         sim->output_stress(sim->getCurrentEvent().getEventNumber(), sweep_num);
 
         // Share the failed blocks with other processors to correctly handle
         // faults that are split among different processors
-        //sim->barrier();    // yoder: (debug)   (we're probably safe without this barrier() )... but at some point, i was able to generate a hang during distributeBlocks()
-        // so let's try it with this in place...
+        //
         sim->distributeBlocks(local_failed_elements, global_failed_elements);
-        //sim->barrier(); // yoder: (debug)
         //
         // Process the blocks that failed.
         // note: setInitStresses() called in processBlocksOrigFail().
@@ -375,9 +370,7 @@ void RunEvent::processStaticFailure(Simulation *sim) {
 
         // Distribute the update field values to other processors
         // (possible) MPI operations:
-        //sim->barrier();    // yoder: (debug)
         sim->distributeUpdateField();
-        //sim->barrier();    // yoder: (debug)
 
         // Set dynamic triggering on for any blocks neighboring blocks that slipped in the last sweep
         for (it=sim->begin(); it!=sim->end(); ++it) {
