@@ -61,6 +61,10 @@ void UpdateBlockStress::init(SimFramework *_sim) {
             // TODO: Instead of dividing by the local slip rate as your normalization,
             //       we need to have some minimum or mean normalization constant to
             //       handle zero slip rates that lead to stress_drop = NaN.
+            // yoder: what about using the residual (aka, deviation from mean). in order to avoid singularities in well defined sets, use x + <x>, and
+            // then normalize of course. something like:
+            // stress_drop += ((mean_slip_rate + slip_rate_j)/(mean_slip_rate + this_slip_rate))*greens_factor*{some_normalization ~ 1/2<slip_rate>}
+            sim->console() << "Calculating stress drops from magic" << std::endl;
             stress_drop = 0;
             norm_velocity = sim->getBlock(gid).slip_rate();
 
@@ -70,6 +74,7 @@ void UpdateBlockStress::init(SimFramework *_sim) {
 
             sim->setStressDrop(gid, sim->getBlock(gid).max_slip()*stress_drop);
         } else {
+            sim->console() << "Loading stress drops from input file." << std::endl;
             sim->setStressDrop(gid, sim->getBlock(gid).stress_drop());
         }
 

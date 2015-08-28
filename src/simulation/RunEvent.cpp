@@ -255,10 +255,8 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
             MPI_Ssend(&(A[i*num_global_failed]), num_global_failed, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
             MPI_Ssend(&(b[i]), 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
         }
-
         //
         // fetch x[i] from root (rank 0) node:
-        //
         for (i=0; i<num_local_failed; ++i) {
             MPI_Recv(&(x[i]), 1, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
@@ -297,7 +295,6 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
     delete [] A;
     delete [] b;
     delete [] x;
-    //sim->barrier();
 }
 
 
@@ -347,17 +344,13 @@ void RunEvent::processStaticFailure(Simulation *sim) {
 
     //
     // While there are still failed blocks to handle
-    //sim->barrier();
     while (more_blocks_to_fail || final_sweep) {
         // write stress, slip, etc. to events and sweeps output (text or hdf5).
         sim->output_stress(sim->getCurrentEvent().getEventNumber(), sweep_num);
 
         // Share the failed blocks with other processors to correctly handle
         // faults that are split among different processors
-        //sim->barrier();    // yoder: (debug)   (we're probably safe without this barrier() )... but at some point, i was able to generate a hang during distributeBlocks()
-        // so let's try it with this in place...
         sim->distributeBlocks(local_failed_elements, global_failed_elements);
-        //sim->barrier(); // yoder: (debug)
         //
         // Process the blocks that failed.
         // note: setInitStresses() called in processBlocksOrigFail().
@@ -367,26 +360,31 @@ void RunEvent::processStaticFailure(Simulation *sim) {
         // Recalculate CFF for all blocks where slipped blocks don't contribute
         for (it=sim->begin(); it!=sim->end(); ++it) {
             BlockID gid = it->getBlockID();
-            sim->setShearStress(gid, 0.0);
+            sim->setShearStress(gid, 0.0);		// yoder: ummm... why do we set shear stress to zero here?
             sim->setNormalStress(gid, sim->getRhogd(gid));
+            // set update_field --> 0 if the element is failed; slip deficit value if not failed. also catch nan values; assume they're zero.
+            //sim->setUpdateField(gid, (std::isnan(sim->getSlipDeficit(gid)) ? 0 :sim->getSlipDeficit(gid) )); // ... also check for nan values
+            //
             sim->setUpdateField(gid, (sim->getFailed(gid) ? 0 : std::isnan(sim->getSlipDeficit(gid)) ? 0 :sim->getSlipDeficit(gid) )); // ... also check for nan values
             //sim->setUpdateField(gid, (sim->getFailed(gid) ? 0 : sim->getSlipDeficit(gid)));
         }
 
         // Distribute the update field values to other processors
         // (possible) MPI operations:
-        //sim->barrier();    // yoder: (debug)
         sim->distributeUpdateField();
-        //sim->barrier();    // yoder: (debug)
-
+        //
         // Set dynamic triggering on for any blocks neighboring blocks that slipped in the last sweep
         for (it=sim->begin(); it!=sim->end(); ++it) {
             BlockID gid = it->getBlockID();
-
+             //
             // Add block neighbors if the block has slipped
-            if (sim->getUpdateField(gid) > 0) {
+            // yoder: (2015-8-27)
+            // yoder, note: this might not work properly if we allow negative slip... depending on how we want negative slipt to be interpreted.
+            // ... and also, isn't this logic inverted? se setUpdateFiled() -> 0 for failed elements, getSlipDeficit() otherwise.
+            //if (sim->getUpdateField(gid) > 0) {
+            if (sim->getUpdateField(gid) == 0) {
                 nbr_start_end = sim->getNeighbors(gid);
-
+                //
                 for (nit=nbr_start_end.first; nit!=nbr_start_end.second; ++nit) {
                     loose_elements.insert(*nit);
                 }
@@ -395,7 +393,7 @@ void RunEvent::processStaticFailure(Simulation *sim) {
 
         //
         // Calculate the CFFs based on the stuck blocks
-        // multiply greenSchear() x getUpdateFieldPtr() --> getShearStressPtr() ... right?
+        // multiply greenShear() x getUpdateFieldPtr() --> getShearStressPtr() ... right?
         // assign stress values (shear stresses at this stage are all set to 0; normal stresses are set to (i think) sim->getRhogd(gid) -- see code a couple paragraphs above.
         sim->matrixVectorMultiplyAccum(sim->getShearStressPtr(),
                                        sim->greenShear(),
@@ -408,16 +406,14 @@ void RunEvent::processStaticFailure(Simulation *sim) {
                                            sim->getUpdateFieldPtr(),
                                            true);
         }
-
+        
+        // so, if we have not (re)assigned stress values to elements, after setting them to zero,default_gravity above (see commment like "Recalculate CFF for all blocks"),
+        // we need to assign stress values to block elements before we do sim->computeCFFs(); sim->computerCFFs() just calucates CFF = shear -mu*normal.
         sim->computeCFFs();
         //
         // For each block that has failed already, calculate the slip from the movement of blocks that just failed
-        // yoder: (debug)
-        //sim->barrier();
         //
         processBlocksSecondaryFailures(sim, event_sweeps);
-        // yoder: (debug)
-        //sim->barrier();
         //
 
         // Set the update field to the slip of all blocks
@@ -433,13 +429,7 @@ void RunEvent::processStaticFailure(Simulation *sim) {
 
         //
         //
-        // could we be getting MPI conflicts here? if one process is trying to distribute original failures (using update_field), and another process is already
-        // trying to distribute secondary failures, this could (???) cause a conflict and hang???
-        // let's try an MPI_Barrier here (i think we've got this wrapped up in an ifmpi block somewhere...):
-        //
-        //sim->barrier();    // yoder: (debug)
         sim->distributeUpdateField();
-        //sim->barrier();    // yoder: (debug)
         //
         // Calculate the new shear stresses and CFFs given the new update field values
         sim->matrixVectorMultiplyAccum(sim->getShearStressPtr(),
@@ -654,19 +644,14 @@ SimRequest RunEvent::run(SimFramework *_sim) {
     for (lid=0; lid<sim->numLocalBlocks(); ++lid) sim->saveStresses(sim->getGlobalBID(lid));
 
     // If there's a specific block that triggered the event, it's a static stress failure type event
-    //sim->barrier();
     if (sim->getCurrentEvent().getEventTrigger() != UNDEFINED_ELEMENT_ID) {
         processStaticFailure(sim);
     } else {
         // Otherwise it's an aftershock
         processAftershock(sim);
     }
-
-    //sim->barrier();
-
     // Record the stress in the system before and after the event.
-    // yoder: note that recordEventStresses() emloyes a bit of MPI action, so it might be advisable to
-    // add some barrier() blocking (which might have been added above to barrier()-wrap the process_{earthquake type}() call).
+    // yoder: note that recordEventStresses() emloyes a bit of MPI action
     recordEventStresses(sim);
 
     // Update the cumulative slip for this fault
@@ -678,10 +663,6 @@ SimRequest RunEvent::run(SimFramework *_sim) {
     // TODO: reinstate this check
     // TODO: currently fails because processors may locally have no failures
     // TODO: notes to self(s) then: this single line works in SPP mode, or more specifically for a single node, so we can use an MPI_reduce() call to get the max or sum
-    // ... and could this be causing heisen_hang? would this create a scenario where a child node would send/receive block data to root
-    // but the root node would not send back anything (block not in list of failed blocks), so that child node would just hang there?
-    // maybe, but i think that by this time, we'd be long since past that point.
-    //       of all local sim->getCurrentEvent().size() values.
     //
     //assertThrow(sim->getCurrentEvent().size() > 0, "There was a trigger but no failed blocks.");
     //
@@ -732,6 +713,7 @@ void RunEvent::recordEventStresses(Simulation *sim) {
     total_normal_init = normal_init;
     total_normal_final = normal_final;
 #endif
-
+	// yoder(debug):
+	//sim->console() << "stresses: " << total_shear_init << ", " << total_shear_final << std::endl;
     sim->getCurrentEvent().setEventStresses(total_shear_init, total_shear_final, total_normal_init, total_normal_final);
 }

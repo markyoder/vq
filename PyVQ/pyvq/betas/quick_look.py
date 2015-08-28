@@ -16,6 +16,7 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 	with h5py.File(vc_data_file, 'r') as vc_data:
 		#
 		events = vc_data['events']
+		if m0==None: m0 = numpy.median(events['event_magnitude'])
 		#
 		if events_start==None: events_start=0
 		if events_end==None:   events_end=len(events)-1
@@ -31,6 +32,12 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		#
 		print "... and bigmags "
 		big_mags = [[rw['event_year'], rw['event_magnitude']] for rw in events if rw['event_magnitude']>=m0]
+		#
+		if len(big_mags)==0:
+			print "no big-mags available. try a median magnitude..."
+			m0 = numpy.median(events['event_magnitude'])
+			big_mags = [[rw['event_year'], rw['event_magnitude']] for rw in events if rw['event_magnitude']>=m0]
+		#
 		big_mag_dts = [[rw[0], rw[0]-big_mags[j][0]] for j, rw in enumerate(big_mags[1:])]
 		#
 		print "Some summary stats:"

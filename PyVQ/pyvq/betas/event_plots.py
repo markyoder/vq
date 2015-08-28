@@ -96,7 +96,7 @@ class Sweeps:
         plt.clf()
         for block_id in block_ids:
             rws = np.core.records.fromarrays(zip(*filter(lambda x: x['block_id']==block_id, self.sweep_data)), dtype=self.sweep_data.dtype)
-            plt.semilogy(rws['sweep_number'], rws['block_slip'], '.-', label=block_id)
+            plt.semilogy(rws['sweep_number'], rws['block_slip'], '.-', label='blk: %d' % block_id)
         if len(block_ids) <= 10:
             plt.legend(loc='best', numpoints=1,fontsize=8,ncol=3,handlelength=2,handletextpad=1)
         plt.title('Event {} (M={:.2f}) slips for {} blocks'.format(self.event_number,self.mag,len(block_ids)))
@@ -115,19 +115,26 @@ class Sweeps:
         #
         plt.figure(fignum)
         plt.clf()
+        ax = plt.gca()
+        #
+        # we should move all plotting parameters into some sort of **kwargs argument. for now, go with what we've got... but clean up a little bit.
+        ax.set_yscale('log' if log else 'linear')
         #
         for block_id in block_ids:
             rws = np.core.records.fromarrays(zip(*filter(lambda x: x['block_id']==block_id, self.sweep_data)), dtype=self.sweep_data.dtype)
             if shear: 
-                if not log:
-                    plt.plot(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
-                else:
-                    plt.semilogy(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+                plt.plot(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+                #if not log:
+                #    plt.plot(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+                #else:
+                #    plt.semilogy(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
             else: 
-                if not log:
-                    plt.plot(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
-                else:
-                    plt.semilogy(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+                plt.plot(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+                #if not log:
+                #    plt.plot(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+                #else:
+                #    plt.semilogy(rws['sweep_number'], rws['shear_change'], '.-', label=block_id)
+        #
 		plt.plot([min(self.sweep_data['sweep_number']), max(self.sweep_data['sweep_number'])], [0., 0.], 'k-')
         if len(block_ids) <= 10:
             plt.legend(loc='best', numpoints=1,fontsize=8,ncol=3,handlelength=2,handletextpad=1)
