@@ -406,6 +406,17 @@ void RunEvent::processStaticFailure(Simulation *sim) {
                                            sim->getUpdateFieldPtr(),
                                            true);
         }
+        /*
+        // yoder:
+        // (debug) try setting shear stress:
+        int j_ssp;
+        sim->console()<<std::endl;
+        for (it=sim->begin(), j_ssp=0; it!=sim->end(); ++it, ++j_ssp) {
+            BlockID gid = it->getBlockID();
+            sim->setShearStress(gid, *(sim->getShearStressPtr()+j_ssp));
+            std::cout<<"getShearStressPtr()[" << j_ssp << "]: " << *(sim->getShearStressPtr()+j_ssp) << std::endl;
+            }
+         */   
         
         // so, if we have not (re)assigned stress values to elements, after setting them to zero,default_gravity above (see commment like "Recalculate CFF for all blocks"),
         // we need to assign stress values to block elements before we do sim->computeCFFs(); sim->computerCFFs() just calucates CFF = shear -mu*normal.
@@ -426,7 +437,6 @@ void RunEvent::processStaticFailure(Simulation *sim) {
             //sim->setUpdateField(gid, (global_failed_elements.count(gid)>0 ? 0 : sim->getSlipDeficit(gid)));
             sim->setUpdateField(gid, (global_failed_elements.count(gid)>0 ? 0 : std::isnan(sim->getSlipDeficit(gid)) ? 0 : sim->getSlipDeficit(gid)));
         }
-
         //
         //
         sim->distributeUpdateField();
@@ -444,7 +454,16 @@ void RunEvent::processStaticFailure(Simulation *sim) {
                                            sim->getUpdateFieldPtr(),
                                            true);
         }
-
+        //
+        /*
+        // yoder:
+        // (debug) try setting shear stress:
+        //int j_ssp=0;
+        for (it=sim->begin(), j_ssp=0; it!=sim->end(); ++it, ++j_ssp) {
+            BlockID gid = it->getBlockID();
+            sim->setShearStress(gid, *(sim->getShearStressPtr()+j_ssp));
+            }
+        */
         //
         sim->computeCFFs();
         //
@@ -638,7 +657,7 @@ void RunEvent::processAftershock(Simulation *sim) {
 SimRequest RunEvent::run(SimFramework *_sim) {
     Simulation            *sim = static_cast<Simulation *>(_sim);
     int                     lid;
-
+    //
     // Save stress information at the beginning of the event
     // This is used to determine dynamic block failure
     for (lid=0; lid<sim->numLocalBlocks(); ++lid) sim->saveStresses(sim->getGlobalBID(lid));

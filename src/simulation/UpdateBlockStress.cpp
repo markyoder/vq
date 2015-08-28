@@ -64,7 +64,7 @@ void UpdateBlockStress::init(SimFramework *_sim) {
             // yoder: what about using the residual (aka, deviation from mean). in order to avoid singularities in well defined sets, use x + <x>, and
             // then normalize of course. something like:
             // stress_drop += ((mean_slip_rate + slip_rate_j)/(mean_slip_rate + this_slip_rate))*greens_factor*{some_normalization ~ 1/2<slip_rate>}
-            sim->console() << "Calculating stress drops from magic" << std::endl;
+            //sim->console() << "Calculating stress drops from magic" << std::endl;
             stress_drop = 0;
             norm_velocity = sim->getBlock(gid).slip_rate();
 

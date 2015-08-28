@@ -96,7 +96,8 @@ class Sweeps:
         plt.clf()
         for block_id in block_ids:
             rws = np.core.records.fromarrays(zip(*filter(lambda x: x['block_id']==block_id, self.sweep_data)), dtype=self.sweep_data.dtype)
-            plt.semilogy(rws['sweep_number'], rws['block_slip'], '.-', label='blk: %d' % block_id)
+            #plt.semilogy(rws['sweep_number'], rws['block_slip'], '.-', label='blk: %d' % block_id)
+            plt.plot(rws['sweep_number'], rws['block_slip'], '.-', label='blk: %d' % block_id)
         if len(block_ids) <= 10:
             plt.legend(loc='best', numpoints=1,fontsize=8,ncol=3,handlelength=2,handletextpad=1)
         plt.title('Event {} (M={:.2f}) slips for {} blocks'.format(self.event_number,self.mag,len(block_ids)))
