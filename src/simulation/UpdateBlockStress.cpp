@@ -38,6 +38,16 @@ void UpdateBlockStress::init(SimFramework *_sim) {
 
     // All processes need the friction values for all blocks, so we set rhogd here
     // and transfer stress drop values between nodes later
+    // yoder: we want to experiment with modified models for stress drop calculations. we migh need mean slip:
+    double mean_slip_rate = 0.;
+    int j_counter = 0;
+    for (nt=sim->begin(); nt!=sim->end(); ++nt, ++j_counter) {
+        mean_slip_rate += nt->slip_rate();
+    }
+    mean_slip_rate/=float(j_counter);
+    // end yoder
+    //
+    // 
     for (lid=0; lid<sim->numLocalBlocks(); ++lid) {
         gid = sim->getGlobalBID(lid);
         //
@@ -67,9 +77,14 @@ void UpdateBlockStress::init(SimFramework *_sim) {
             //sim->console() << "Calculating stress drops from magic" << std::endl;
             stress_drop = 0;
             norm_velocity = sim->getBlock(gid).slip_rate();
-
+            //
+            // yoder: we might try some alternative forms of this; namely formats that are less sensitive to singularities, say for norm_velocity->0
             for (nt=sim->begin(); nt!=sim->end(); ++nt) {
-                stress_drop += (nt->slip_rate()/norm_velocity)*sim->getGreenShear(gid, nt->getBlockID());
+            	// original (EMH):
+                //stress_drop += (nt->slip_rate()/norm_velocity)*sim->getGreenShear(gid, nt->getBlockID());
+                // modified (yoder):
+                stress_drop += ((mean_slip_rate + nt->slip_rate())/(mean_slip_rate + norm_velocity))*sim->getGreenShear(gid, nt->getBlockID());
+                // yoder: ... and in general, these should probably be normalizd in some proper way...
             }
 
             sim->setStressDrop(gid, sim->getBlock(gid).max_slip()*stress_drop);
