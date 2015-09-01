@@ -39,15 +39,22 @@ void UpdateBlockStress::init(SimFramework *_sim) {
     // All processes need the friction values for all blocks, so we set rhogd here
     // and transfer stress drop values between nodes later
     // yoder: we want to experiment with modified models for stress drop calculations. we migh need mean slip:
+    // note: this makes a big mess if we run on multi-processors. either do an mpigether (or something), or output stress_drop
+    //   from wherever UpdateBlockStress::init() is initially called.
     double mean_slip_rate = 0.;
+    double total_slip_rate = 0.;
     int j_counter = 0;
     for (nt=sim->begin(); nt!=sim->end(); ++nt, ++j_counter) {
-        mean_slip_rate += nt->slip_rate();
+        total_slip_rate += nt->slip_rate();
     }
-    mean_slip_rate/=float(j_counter);
+    float n_slips = float(j_counter);
+    mean_slip_rate = total_slip_rate/n_slips;
+    // yoder (stress drop output):
+    std::ofstream stress_drop_output;
+    stress_drop_output.open("stress_drops.csv");
+    stress_drop_output << "#stress drop and weights from vq\n";
     // end yoder
     //
-    // 
     for (lid=0; lid<sim->numLocalBlocks(); ++lid) {
         gid = sim->getGlobalBID(lid);
         //
@@ -84,15 +91,17 @@ void UpdateBlockStress::init(SimFramework *_sim) {
                 //stress_drop += (nt->slip_rate()/norm_velocity)*sim->getGreenShear(gid, nt->getBlockID());
                 // modified (yoder):
                 stress_drop += ((mean_slip_rate + nt->slip_rate())/(mean_slip_rate + norm_velocity))*sim->getGreenShear(gid, nt->getBlockID());
-                // yoder: ... and in general, these should probably be normalizd in some proper way...
+                // yoder: ... and in general, these should probably be normalizd in some proper way, most pointedly so that they are all negative.
+                //
             }
-
             sim->setStressDrop(gid, sim->getBlock(gid).max_slip()*stress_drop);
         } else {
             sim->console() << "Loading stress drops from input file." << std::endl;
             sim->setStressDrop(gid, sim->getBlock(gid).stress_drop());
         }
-
+		// yoder (stress drop output):
+        stress_drop_output << sim->getBlock(gid).max_slip()*stress_drop << "\t" << sim->getStressDrop(gid) <<  "\t" << stress_drop << "\t" << ((mean_slip_rate + nt->slip_rate())/(mean_slip_rate + norm_velocity)) << std::endl;
+		//
         // Initialize element slips to equilibrium position, slip=0
         sim->setSlipDeficit(gid, 0);
 
@@ -102,6 +111,7 @@ void UpdateBlockStress::init(SimFramework *_sim) {
             sim->compressNormalRow(gid, 0.7);
         }
     }
+    stress_drop_output.close();
 
 #ifdef MPI_C_FOUND
 

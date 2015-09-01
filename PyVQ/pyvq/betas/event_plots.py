@@ -74,9 +74,39 @@ def parse_sweeps_h5(sim_file=None, block_id=None, event_number=0, do_print=True,
 	return np.core.records.fromarrays(zip(*data), names=cols, formats = [type(x).__name__ for x in data[0]])
 
 
+def hist_file(file_in=None, hist_cols=[0], comment_char='#', delim='\t', **hist_kwargs):
+	'''
+	# simple wrapper to plot histogram(s) from csv type data.
+	# plot a histogram for each col in hist_cols. 
+	# pass any histogram arguemtns in hist_kwargs.
+	'''
+	if hist_cols==None:
+		# assume one histogram for each column...
+		with open(file_in, 'r') as f:
+			for rw in f:
+				if rw[0]==comment_char: continue
+				hist_cols = range(len(rw.split()))
+				break
+			#
+		#
+	#
+	
+	#
+	with open(file_in, 'r') as f:			
+		datas = zip(*[rw.split() for rw in f if rw[0]!=comment_char[0]])
+	#
+	hist_kwargs['bins']=hist_kwargs.get('bins', len(datas[0])/100)
+	#
+	for fnum,col in enumerate(hist_cols):
+		plt.figure(fnum)
+		plt.clf()
+		#
+		plt.hist([float(x) for x in datas[col]], **hist_kwargs)
+	
+
 # ======= SIM DATA CLASSES ===========================================
-class Events:
-    def __init__(self, sim_file):
+class Events(object):
+    def __init__(self, sim_file, min_detectable_slip=.001):
     	# block_size should probably not be a parameter; we should read it from a corresponding fault geometry... won't really matter at first,
     	# since it won't change scaling.
         # TODO: Add event filters
@@ -114,7 +144,7 @@ class Events:
         		block_slips = {b_id:0. for b_id in ev_sw['block_id']}
         		for rw in ev_sw: block_slips[rw['block_id']]+=rw['block_slip']
         		#area_slip_weighted = numpy.sum([block_areas_unique[key]*block_slips[key] for key in block_slips.iterkeys()])/mean_slip
-        		area_prime = sum([val for key,val in block_areas_unique.iteritems() if block_slips[key] >10.**(-3.)])
+        		area_prime = sum([val for key,val in block_areas_unique.iteritems() if abs(block_slips[key]) > min_detectable_slip])
         		#
         		events_2 += [[mean_slip, area_total, area_prime]]
         	#
@@ -129,7 +159,20 @@ class Events:
         ax=plt.gca()
         ax.set_yscale('log')
         #
-        ax.plot(self.events['event_magnitude'], self.events['mean_slip'], '.')
+        try:
+            # intercept, slope
+            lM = numpy.log10(numpy.abs(self.events['mean_slip']))
+            a,b = scipy.optimize.curve_fit(lambda x,a,b: a + b*x, self.events['event_magnitude'], lM)
+            print ("fits: %f, %f" % (a,b))
+            inv_log = lambda x: 10.**(a + b*x)
+            X = [[0], self.events['event_magnitude'][-1]]
+            #ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='scaling: a=%.3f, b=%.3f' % (a,b))
+            ax.plot(X, [10.**(a+b*x) for x in X], '.-', lw=2, label='scaling: a=%.3f, b=%.3f' % (a,b))
+        except:
+        	print("fit to data failed...")
+        #
+        ax.plot(self.events['event_magnitude'], numpy.abs(self.events['mean_slip']), '.')
+        
         plt.title('Slip-magnitude scaling')
         plt.xlabel('Event magnitude $m$', size=18)
         plt.ylabel('Event slip $s$', size=18)
@@ -142,8 +185,28 @@ class Events:
         ax=plt.gca()
         ax.set_yscale('log')
         #
+        try:
+            # fit these data to get a scaling expon/slope:
+            #
+            a_0, b_0 = scipy.optimize.curve_fit(lambda x,a,b: a+b*x, self.events['event_magnitude'], numpy.log10(self.events['area']))[0]
+            a_1, b_1 = scipy.optimize.curve_fit(lambda x,a,b: a+b*x, self.events['event_magnitude'], numpy.log10(self.events['area_prime']))[0]
+            print ("fits_0: %f, %f" % (a_0,b_0))
+            print ("fits_1: %f, %f" % (a_1,b_1))
+            #
+            X = [self.events['event_magnitude'][0], self.events['event_magnitude'][-1]]
+            inv_log = lambda x: 10.**(a_0 + b_0*x)
+            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_0,b_0))
+            inv_log = lambda x: 10.**(a_1 + b_1*x)
+            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_1,b_1))
+        except:
+			print("fit to area scaling data failed.")
+        
+        
+        #
         ax.plot(self.events['event_magnitude'], self.events['area'], '.')
         ax.plot(self.events['event_magnitude'], self.events['area_prime'], '.')
+        
+        
         
         #area_prime = [[rw['event_magnitude'], rw['area']]
         
