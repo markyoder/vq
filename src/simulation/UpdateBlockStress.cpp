@@ -35,6 +35,14 @@ void UpdateBlockStress::init(SimFramework *_sim) {
 
     sim = static_cast<Simulation *>(_sim);
     tmpBuffer = new double[sim->numGlobalBlocks()];
+    //
+    // yoder: calc mean slips rate:
+    double mean_slip = 0.;
+    int n_slips=0;
+    for (nt=sim->begin(); nt!=sim->end(); ++nt, ++n_slips) {
+        mean_slip+=nt->slip_rate();
+        }
+    mean_slip/=double(n_slips);
 
     // All processes need the friction values for all blocks, so we set rhogd here
     // and transfer stress drop values between nodes later
@@ -69,7 +77,9 @@ void UpdateBlockStress::init(SimFramework *_sim) {
             norm_velocity = sim->getBlock(gid).slip_rate();
 
             for (nt=sim->begin(); nt!=sim->end(); ++nt) {
-                stress_drop += (nt->slip_rate()/norm_velocity)*sim->getGreenShear(gid, nt->getBlockID());
+                // yoder:
+                // stress_drop += (nt->slip_rate()/norm_velocity)*sim->getGreenShear(gid, nt->getBlockID());
+                stress_drop += ((mean_slip+nt->slip_rate())/(mean_slip+norm_velocity))*sim->getGreenShear(gid, nt->getBlockID());
             }
 
             sim->setStressDrop(gid, sim->getBlock(gid).max_slip()*stress_drop);

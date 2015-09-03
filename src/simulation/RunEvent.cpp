@@ -63,14 +63,15 @@ void RunEvent::processBlocksOrigFail(Simulation *sim, quakelib::ModelSweeps &swe
             Block &b = sim->getBlock(*fit);
             //
             // calculate the drop in stress from the failure
-            stress_drop = sim->getCFF0(gid) - sim->getCFF(gid);
+            //stress_drop = sim->getCFF0(gid) - sim->getCFF(gid);
 
-            if (!stress_drop) stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
+            //if (!stress_drop) stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
+            stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
 
             // Slip is in m
             slip = (stress_drop/sim->getSelfStresses(gid));
 
-            if (slip < 0) slip = 0;
+            //if (slip < 0) slip = 0;
 
             // Record how much the block slipped in this sweep and initial stresses
             sweeps.setSlipAndArea(sweep_num,
@@ -274,7 +275,8 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         double slip = x[i] - sim->getSlipDeficit(*it);
 
         //
-        if (slip > 0) {
+        //if (slip > 0) {
+        if (true) {
             // Record how much the block slipped in this sweep and initial stresse
             sweeps.setSlipAndArea(sweep_num,
                                   *it,
@@ -287,6 +289,7 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
                                    sim->getNormalStress(*it));
             //
             sim->setSlipDeficit(*it, sim->getSlipDeficit(*it)+slip);
+            //
         }
     }
 

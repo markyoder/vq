@@ -913,8 +913,13 @@ namespace quakelib {
                     _total_slip[it->_element_id]._slip += it->_slip;
                     _total_slip[it->_element_id]._area = it->_area;
                     _total_slip[it->_element_id]._mu = it->_mu;
+                    //
+                    // yoder: what if we add shaking back and forth into moment.. at least for mag-reporting.
                     moment += it->_slip*it->_mu*it->_area;
+                    //moment += std::abs(it->_slip*it->_mu*it->_area);
                 }
+                // yoder: slip can be negative. so moment can be negative...
+                moment=std::abs(moment);
 
                 _data._event_magnitude = (2.0/3.0)*log10(1e7*moment) - 10.7;
             }
