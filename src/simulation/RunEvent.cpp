@@ -71,12 +71,9 @@ void RunEvent::processBlocksOrigFail(Simulation *sim, quakelib::ModelSweeps &swe
             // Slip is in m
             slip = (stress_drop/sim->getSelfStresses(gid));
 
-<<<<<<< HEAD
-            //if (slip < 0) slip = 0;
-=======
+
             //if (slip < 0) slip = 0;		// yoder: here, i think we need to decide if: (we don't allow negative slip AND we dont' allow positive stress drops) OR,
                                                   // we DO allow (negative stress drop AND negative slip).
->>>>>>> 0991007b202ab27f6e1538c73e7638639631d685
 
             // Record how much the block slipped in this sweep and initial stresses
             sweeps.setSlipAndArea(sweep_num,
@@ -279,11 +276,7 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         //
         double slip = x[i] - sim->getSlipDeficit(*it);
 
-        //
-<<<<<<< HEAD
-=======
         // yoder: let's try pulling all the slip>0 rules. we do, after all have positive stress drops...
->>>>>>> 0991007b202ab27f6e1538c73e7638639631d685
         //if (slip > 0) {
         if (true) {
             // Record how much the block slipped in this sweep and initial stresse
