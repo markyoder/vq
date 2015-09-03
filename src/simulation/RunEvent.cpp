@@ -71,7 +71,12 @@ void RunEvent::processBlocksOrigFail(Simulation *sim, quakelib::ModelSweeps &swe
             // Slip is in m
             slip = (stress_drop/sim->getSelfStresses(gid));
 
+<<<<<<< HEAD
             //if (slip < 0) slip = 0;
+=======
+            //if (slip < 0) slip = 0;		// yoder: here, i think we need to decide if: (we don't allow negative slip AND we dont' allow positive stress drops) OR,
+                                                  // we DO allow (negative stress drop AND negative slip).
+>>>>>>> 0991007b202ab27f6e1538c73e7638639631d685
 
             // Record how much the block slipped in this sweep and initial stresses
             sweeps.setSlipAndArea(sweep_num,
@@ -275,6 +280,10 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         double slip = x[i] - sim->getSlipDeficit(*it);
 
         //
+<<<<<<< HEAD
+=======
+        // yoder: let's try pulling all the slip>0 rules. we do, after all have positive stress drops...
+>>>>>>> 0991007b202ab27f6e1538c73e7638639631d685
         //if (slip > 0) {
         if (true) {
             // Record how much the block slipped in this sweep and initial stresse
@@ -344,7 +353,6 @@ void RunEvent::processStaticFailure(Simulation *sim) {
     //
     // use this iterator/counter to efficiently walk through the event_sweeps list when we update stresses:
     unsigned int event_sweeps_pos = 0;
-
     //
     // While there are still failed blocks to handle
     while (more_blocks_to_fail || final_sweep) {
@@ -382,7 +390,7 @@ void RunEvent::processStaticFailure(Simulation *sim) {
              //
             // Add block neighbors if the block has slipped
             // yoder: (2015-8-27)
-            // yoder, note: this might not work properly if we allow negative slip... depending on how we want negative slipt to be interpreted.
+            // yoder, note: this might not work properly if we allow negative slip... depending on how we want negative slip to be interpreted.
             // ... and also, isn't this logic inverted? se setUpdateFiled() -> 0 for failed elements, getSlipDeficit() otherwise.
             //if (sim->getUpdateField(gid) > 0) {
             if (sim->getUpdateField(gid) == 0) {

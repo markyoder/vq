@@ -17,6 +17,7 @@ import h5py
 import itertools
 import scipy.optimize
 from scipy.stats import norm
+import os
 
 import sys
 

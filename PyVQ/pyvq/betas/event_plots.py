@@ -9,6 +9,7 @@ import quakelib
 import gc
 import operator
 scipy_available = True
+#
 try:
     import scipy.stats
 except ImportError:
@@ -22,6 +23,7 @@ except ImportError:
 numpy_available = True
 try:
     import numpy as np
+    import numpy		# i often use numpy as just numpy, so can we keep the alias?
 except ImportError:
     numpy_available = False
 h5py_available = True
@@ -72,23 +74,163 @@ def parse_sweeps_h5(sim_file=None, block_id=None, event_number=0, do_print=True,
 	return np.core.records.fromarrays(zip(*data), names=cols, formats = [type(x).__name__ for x in data[0]])
 
 
+def hist_file(file_in=None, hist_cols=[0], comment_char='#', delim='\t', **hist_kwargs):
+	'''
+	# simple wrapper to plot histogram(s) from csv type data.
+	# plot a histogram for each col in hist_cols. 
+	# pass any histogram arguemtns in hist_kwargs.
+	'''
+	if hist_cols==None:
+		# assume one histogram for each column...
+		with open(file_in, 'r') as f:
+			for rw in f:
+				if rw[0]==comment_char: continue
+				hist_cols = range(len(rw.split()))
+				break
+			#
+		#
+	#
+	
+	#
+	with open(file_in, 'r') as f:			
+		datas = zip(*[rw.split() for rw in f if rw[0]!=comment_char[0]])
+	#
+	hist_kwargs['bins']=hist_kwargs.get('bins', len(datas[0])/100)
+	#
+	for fnum,col in enumerate(hist_cols):
+		plt.figure(fnum)
+		plt.clf()
+		#
+		plt.hist([float(x) for x in datas[col]], **hist_kwargs)
+	
+
 # ======= SIM DATA CLASSES ===========================================
-class Events:
-    def __init__(self, sim_file):
+class Events(object):
+    def __init__(self, sim_file, min_detectable_slip=.001):
+    	# block_size should probably not be a parameter; we should read it from a corresponding fault geometry... won't really matter at first,
+    	# since it won't change scaling.
         # TODO: Add event filters
-        self.events = read_events_h5(sim_file)
+        #self.events = read_events_h5(sim_file)
+        #
         print("Reading events from {}".format(sim_file))
+        #
+        # now, derived values from sweeps: area, slip, ??
+        #
+        new_cols = ['mean_slip', 'area', 'area_prime']
+        events_2 = []	# we'll wrap these together with events later
+        #
+        # in the event that we encounter large sweeps files, load sweep data one (or a few -- we'll get to that later) at a time.
+        with h5py.File(sim_file) as vc_data:
+        	self.events = vc_data['events'][()]
+        	#return self.events
+        	
+        	sweeps=vc_data['sweeps']
+        	for j, rw in enumerate(self.events):
+        		#"event-sweep"
+        		
+        		#j0=
+        		#j1=rw
+        		#print("range: ", j0,j1)
+        		ev_sw = sweeps[rw['start_sweep_rec']:rw['end_sweep_rec']][()]
+        		#n_elements = len(set(ev_sw['block_id']))
+        		n_elements = rw['end_sweep_rec'] - rw['start_sweep_rec']
+        		#block_areas = list(set([[rw['block_id'], rw['block_area']] for rw in ev_sw]))
+        		block_areas_unique = {key:val for key,val in [[rw['block_id'], rw['block_area']] for rw in ev_sw]}		# this is a bit more stable, in the event that there are small
+        																										# maybe floating point differences in block area. taking the mean
+        																										# area would probabu be better...
+        		area_total = numpy.sum(block_areas_unique.values())
+        		mean_slip=numpy.sum([rw2['block_slip']*rw2['block_area'] for rw2 in ev_sw])/area_total
+        		
+        		block_slips = {b_id:0. for b_id in ev_sw['block_id']}
+        		for rw in ev_sw: block_slips[rw['block_id']]+=rw['block_slip']
+        		#area_slip_weighted = numpy.sum([block_areas_unique[key]*block_slips[key] for key in block_slips.iterkeys()])/mean_slip
+        		area_prime = sum([val for key,val in block_areas_unique.iteritems() if abs(block_slips[key]) > min_detectable_slip])
+        		#
+        		events_2 += [[mean_slip, area_total, area_prime]]
+        	#
+        #
+        #self.events_2=events_2
+        self.events = np.core.records.fromarrays(list(zip(*self.events)) + list(zip(*events_2)), names = list(self.events.dtype.names) + new_cols, formats = [rw[1] for rw in self.events.dtype.descr] + [type(x).__name__ for x in events_2[0]])
+        #
+    def plot_slip_mag(self, fignum=0, event_ids=None, block_ids=None):
+        # TODO: eventually allow event, block_id filters.
+        plt.figure(fignum)
+        plt.clf()
+        ax=plt.gca()
+        ax.set_yscale('log')
+        #
+        try:
+            # intercept, slope
+            lM = numpy.log10(numpy.abs(self.events['mean_slip']))
+            a,b = scipy.optimize.curve_fit(lambda x,a,b: a + b*x, self.events['event_magnitude'], lM)
+            print ("fits: %f, %f" % (a,b))
+            inv_log = lambda x: 10.**(a + b*x)
+            X = [[0], self.events['event_magnitude'][-1]]
+            #ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='scaling: a=%.3f, b=%.3f' % (a,b))
+            ax.plot(X, [10.**(a+b*x) for x in X], '.-', lw=2, label='scaling: a=%.3f, b=%.3f' % (a,b))
+        except:
+        	print("fit to data failed...")
+        #
+        ax.plot(self.events['event_magnitude'], numpy.abs(self.events['mean_slip']), '.')
+        
+        plt.title('Slip-magnitude scaling')
+        plt.xlabel('Event magnitude $m$', size=18)
+        plt.ylabel('Event slip $s$', size=18)
+    
+    def plot_area_mag(self, fignum=0, event_ids=None, block_ids=None, min_slip=.001):
+    	# @min_slip: minimum slip on block to consider for area calc; if slip<min_slip, exclude from area calculation.
+        # TODO: eventually allow event, block_id filters.
+        plt.figure(fignum)
+        plt.clf()
+        ax=plt.gca()
+        ax.set_yscale('log')
+        #
+        try:
+            # fit these data to get a scaling expon/slope:
+            #
+            a_0, b_0 = scipy.optimize.curve_fit(lambda x,a,b: a+b*x, self.events['event_magnitude'], numpy.log10(self.events['area']))[0]
+            a_1, b_1 = scipy.optimize.curve_fit(lambda x,a,b: a+b*x, self.events['event_magnitude'], numpy.log10(self.events['area_prime']))[0]
+            print ("fits_0: %f, %f" % (a_0,b_0))
+            print ("fits_1: %f, %f" % (a_1,b_1))
+            #
+            X = [self.events['event_magnitude'][0], self.events['event_magnitude'][-1]]
+            inv_log = lambda x: 10.**(a_0 + b_0*x)
+            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_0,b_0))
+            inv_log = lambda x: 10.**(a_1 + b_1*x)
+            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_1,b_1))
+        except:
+			print("fit to area scaling data failed.")
+        
+        
+        #
+        ax.plot(self.events['event_magnitude'], self.events['area'], '.')
+        ax.plot(self.events['event_magnitude'], self.events['area_prime'], '.')
+        
+        
+        
+        #area_prime = [[rw['event_magnitude'], rw['area']]
+        
+        plt.title('Area-magnitude scaling')
+        plt.xlabel('Event magnitude $m$', size=18)
+        plt.ylabel('Event area $A$', size=18)
 
 
 class Sweeps:
     def __init__(self, sim_file, event_number=0, block_ids=None):
         self.sweeps = read_sweeps_h5(sim_file, event_number=event_number, block_ids=block_ids)
-        self.sweep_data = parse_sweeps_h5(sweeps=self.sweeps, do_print=False)
+        self.sweep_data = parse_sweeps_h5(sweeps=self.sweeps, do_print=False)					# not sure what the difference is here...
         self.block_ids = self.sweep_data['block_id'].tolist()
         self.mag = read_events_h5(sim_file,event_numbers=event_number)['event_magnitude'][0]
         self.event_number = event_number
         print("Read event {} sweeps from {}".format(event_number,sim_file))
         # we could also, at this point, parse out the individual block sequences, maybe make a class Block().
+    #
+    def block_slips(self):
+        # return total slip on each block.
+        slips = {rw['block_id']:0. for rw in self.sweeps}
+        for rw in self.sweeps: slips[rw['block_id']]+=rw['block_slip']
+        #
+        return numpy.core.records.fromarrays(zip(*[[key,val] for key,val in slips.iteritems()]), names=('block_id','slip'), formats=('u8', 'f8'))
     #
     def plot_event_block_slips(self, block_ids=None, fignum=0):
         block_ids = self.check_block_ids_list(block_ids)
@@ -161,6 +303,11 @@ class Sweeps:
         if isinstance(block_ids, int): block_ids = [block_ids]
         return block_ids
 
+if __name__=='__main__':
+	# probably use 'Agg' backend for mpl...
+	pass
+else:
+	plt.ion()
 
 # ============================ TEMP. RUNNER ===================
 # Example usage below
