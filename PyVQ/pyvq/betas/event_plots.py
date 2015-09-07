@@ -20,6 +20,20 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:
     matplotlib_available = False
+#
+pyplot_advanced_available = True
+try:
+    import matplotlib.tri as tri
+    from mpl_toolkits.mplot3d import Axes3D
+    import matplotlib.font_manager as mfont
+    import matplotlib.colors as mcolor
+    import matplotlib.colorbar as mcolorbar
+    import matplotlib.lines as mlines
+    import matplotlib.patches as mpatches
+    import mpl_toolkits.basemap as bmp
+except:
+    pyplot_advanced_available = False
+	
 numpy_available = True
 try:
     import numpy as np
@@ -104,6 +118,14 @@ def hist_file(file_in=None, hist_cols=[0], comment_char='#', delim='\t', **hist_
 		plt.hist([float(x) for x in datas[col]], **hist_kwargs)
 	
 
+
+def lin_fit_xy(xy, xcol=0, ycol=1):
+    xy.sort(key=lambda rw: rw[0])
+    x,y = zip(*xy)
+    a,b = scipy.optimize.curve_fit(lambda x,a,b: a + b*x, x,y)
+    #
+    return a,b
+
 # ======= SIM DATA CLASSES ===========================================
 class Events(object):
     def __init__(self, sim_file, min_detectable_slip=.001):
@@ -159,6 +181,7 @@ class Events(object):
         #self.events_2=events_2
         self.events = np.core.records.fromarrays(list(zip(*self.events)) + list(zip(*events_2)), names = list(self.events.dtype.names) + new_cols, formats = [rw[1] for rw in self.events.dtype.descr] + [type(x).__name__ for x in events_2[0]])
         #
+    
     def plot_slip_mag(self, fignum=0, event_ids=None, block_ids=None):
         # TODO: eventually allow event, block_id filters.
         plt.figure(fignum)
@@ -168,7 +191,9 @@ class Events(object):
         #
         try:
             # intercept, slope
-            lS = numpy.log10(numpy.abs(self.events['mean_slip']))
+            #lS = numpy.log10(numpy.abs(self.events['mean_slip']))
+            lS = numpy.array([math.log10(abs(x)) for x in self.events['mean_slip']])
+            print("fitting...")
             a,b = scipy.optimize.curve_fit(lambda x,a,b: a + b*x, self.events['event_magnitude'], lS)
             print ("fits: %f, %f" % (a,b))
             inv_log = lambda x: 10.**(a + b*x)
@@ -186,6 +211,43 @@ class Events(object):
         plt.xlabel('Event magnitude $m$', size=18)
         plt.ylabel('Event slip $s$', size=18)
         plt.legend(loc=0, numpoints=1)
+    
+    def plot_slip_area_mag(self, fignum=0):
+    	# these plot functions should be converted into a Plotter() class, as to recycle the common __init__() functionality and common input parameter syntax.        
+        f=plt.figure(fignum)
+        plt.clf()
+        ax3d = f.add_axes([.1, .1, .8, .8], projection='3d')
+        ax3d.set_yscale('log')
+        ax3d.set_xscale('log')
+        #
+        xyz = zip(self.events['event_magnitude'], self.events['mean_slip'], self.events['area'])
+        #return xyz
+        #ax3d.plot(*zip(*[[abs(s), a, m] for m,s,a in xyz if s<0.]), marker='.', ls='', label='neg')
+        #ax3d.plot(*zip(*[[abs(s), a, m] for m,s,a in xyz if s>0.]), marker='.', ls='', label='pos')
+        ax3d.plot(*zip(*[[abs(s),a,m] for m,s,a in xyz]), marker='.', ls='', label='combined')
+        #
+        plt.title('Slip-Area-Magnitude')
+        ax3d.set_xlabel('Event area $A$', size=18)
+        ax3d.set_ylabel('Event slip $s$', size=18)
+        ax3d.set_zlabel('Event magnitude $m$', size=18)
+    #
+    def plot_slip_area(self, fignum=0):
+    	# these plot functions should be converted into a Plotter() class, as to recycle the common __init__() functionality and common input parameter syntax.        
+        f=plt.figure(fignum)
+        plt.clf()
+        #ax3d = f.add_axes([.1, .1, .8, .8], projection='3d')
+        ax=plt.gca()
+        ax.set_yscale('log')
+        ax.set_xscale('log')
+        #
+        ax.plot(*zip(*[[abs(s), a] for m,s,a in zip(self.events['event_magnitude'], self.events['mean_slip'], self.events['area']) if s<0.]), marker='.', ls='', label='neg')
+        ax.plot(*zip(*[[abs(s), a] for m,s,a in zip(self.events['event_magnitude'], self.events['mean_slip'], self.events['area']) if s>0.]), marker='.', ls='', label='pos')
+        #
+        plt.title('Slip-Area')
+        ax.set_xlabel('Event area $A$', size=18)
+        ax.set_ylabel('Event slip $s$', size=18)
+        
+        
     
     def plot_moment_mag(self, fignum=0, event_ids=None, block_ids=None):
     	# TODO: eventually allow event, block_id filters.
