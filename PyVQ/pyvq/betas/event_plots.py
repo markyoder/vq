@@ -116,7 +116,7 @@ class Events(object):
         #
         # now, derived values from sweeps: area, slip, ??
         #
-        new_cols = ['mean_slip', 'area', 'area_prime']
+        new_cols = ['mean_slip', 'area', 'area_prime', 'event_moment', 'event_moment_prime']
         events_2 = []	# we'll wrap these together with events later
         #
         # in the event that we encounter large sweeps files, load sweep data one (or a few -- we'll get to that later) at a time.
@@ -127,7 +127,8 @@ class Events(object):
         	sweeps=vc_data['sweeps']
         	for j, rw in enumerate(self.events):
         		#"event-sweep"
-        		
+        		# the interworking sof this should probably be rewritten to produce a single array-type object of sweep-block data, rather than a
+        		# bunch of dict objects, as is the current evolution.
         		#j0=
         		#j1=rw
         		#print("range: ", j0,j1)
@@ -146,7 +147,13 @@ class Events(object):
         		#area_slip_weighted = numpy.sum([block_areas_unique[key]*block_slips[key] for key in block_slips.iterkeys()])/mean_slip
         		area_prime = sum([val for key,val in block_areas_unique.iteritems() if abs(block_slips[key]) > min_detectable_slip])
         		#
-        		events_2 += [[mean_slip, area_total, area_prime]]
+        		# we'll want to distinguish between (un)observable slips and sum(slips) vs sum(abs(slips)).
+        		# this will be interesting with respect to comparison to observables. what is the difference in (observed) moment if some block sections slip backwards?
+        		block_moments = {key:block_areas_unique[key]*abs(block_slips[key]) for key in block_slips.iterkeys()}
+        		event_moment = sum(block_moments.itervalues())
+        		event_moment_prime = sum([val for key,val in block_moments.iteritems() if block_slips[key]>min_detectable_slip])
+        		#
+        		events_2 += [[mean_slip, area_total, area_prime, event_moment, event_moment_prime]]
         	#
         #
         #self.events_2=events_2
@@ -172,10 +179,24 @@ class Events(object):
         	print("fit to data failed...")
         #
         ax.plot(self.events['event_magnitude'], numpy.abs(self.events['mean_slip']), '.')
-        
+        #
         plt.title('Slip-magnitude scaling')
         plt.xlabel('Event magnitude $m$', size=18)
         plt.ylabel('Event slip $s$', size=18)
+    
+    def plot_moment_mag(self, fignum=0, event_ids=None, block_ids=None):
+    	# TODO: eventually allow event, block_id filters.
+        plt.figure(fignum)
+        plt.clf()
+        ax=plt.gca()
+        ax.set_yscale('log')
+        #
+        ax.plot(self.events['event_magnitude'], self.events['event_moment'], '.', zorder=5)
+        ax.plot(self.events['event_magnitude'], self.events['event_moment_prime'], '.', zorder=6, alpha=.8)
+        #
+        plt.title('Moment-magnitude scaling (friction excluded)')
+        plt.xlabel('Event magnitude $m$', size=18)
+        plt.ylabel('Event Moment $M_0$', size=18)
     
     def plot_area_mag(self, fignum=0, event_ids=None, block_ids=None, min_slip=.001):
     	# @min_slip: minimum slip on block to consider for area calc; if slip<min_slip, exclude from area calculation.

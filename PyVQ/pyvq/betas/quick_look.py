@@ -13,6 +13,9 @@ events_2 = 'ca_model_hattonsenvy_105yrs_3km/events_3000.hdf5'
 
 def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end=None, m0=7.0):
 	# make some quick figures for preliminary analysis.
+	# figures might be a bit of a mess right now if negative slip is permitted. the magnitude calculation in VQ does not seem to account
+	# for negative slip, so events with negative slip have mag=nan. we can handle that in data (nominally) by calculating maginutude from moment
+	# but probably should be fixed in VQ.
 	with h5py.File(vc_data_file, 'r') as vc_data:
 		#
 		events = vc_data['events']
@@ -23,7 +26,8 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		events = events[events_start:events_end]
 		#		
 		print "get magnitudes and then sort..."
-		mags = sorted(events['event_magnitude'].tolist())
+		mags = events['event_magnitude'].tolist()
+		mags.sort()
 		#
 		print "get delta_ts..."
 		T=events['event_year']
@@ -54,9 +58,10 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		# first: magnitude distributions
 		f=figs[-1]
 		ax = plt.gca()
-		ax.set_yscale('log')
+		#ax.set_yscale('log')
 		#ax.plot(mags, reversed(xrange(1, len(mags)+1)), '.-')
-		ax.plot(*zip(*[[m,len(mags)-j] for j,m in enumerate(mags)]), color='b', marker='.', ls='-', zorder=4, label='Cumulative $N(>m)$')
+		N = len(mags)
+		ax.plot(*zip(*[[m,N-j] for j,m in enumerate(mags)]), color='b', marker='.', ls='-', zorder=4, label='Cumulative $N(>m)$')
 		# and the pdf...
 		dolog=True
 		ax.hist(mags,bins=200, range=[min(mags), max(mags)], log=dolog, histtype='step', label='Prob. Density')
@@ -144,11 +149,14 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		#ax.set_xscale('log')
 		ax.plot(events['event_year'], (events['event_shear_final'] - events['event_shear_init'])/(.5*(events['event_shear_init']+events['event_shear_final'])), '-', lw=2, zorder=4, label='mean stress change')
 		ax.plot([events['event_year'][0], events['event_year'][-1]], [0., 0.], '-k', lw=1.5, zorder=5, alpha=.5)
+		ax.set_ylabel('fractional stress change')
+		ax.legend(loc=['upper left'], numpoints=1)
 		ax2 = ax.twinx()
 		ax2.plot(events['event_year'], (.5*(events['event_shear_final']+events['event_shear_init'])), 'b-', lw=2, zorder=4, label='shear_mean')
 		ax2.plot(events['event_year'], events['event_shear_init'], 'r-', lw=2, zorder=4, label='shear_init')
 		ax2.plot(events['event_year'], events['event_shear_final'], 'g-', lw=2, zorder=4, label='shear_final')
-		ax2.legend(loc=0, numpoints=1)
+		ax2.legend(loc='upper_right', numpoints=1)
+		ax2.set_ylabel('stress')
 		#	
 	#
 	return h_cum
