@@ -35,20 +35,21 @@ void UpdateBlockStress::init(SimFramework *_sim) {
 
     sim = static_cast<Simulation *>(_sim);
     tmpBuffer = new double[sim->numGlobalBlocks()];
+    //
+    // yoder: calc mean slips rate:
+    double mean_slip_rate = 0.;
+    int n_slips=0;
+    for (nt=sim->begin(); nt!=sim->end(); ++nt, ++n_slips) {
+        mean_slip_rate += nt->slip_rate();
+        }
+    mean_slip_rate/=double(n_slips);
 
     // All processes need the friction values for all blocks, so we set rhogd here
     // and transfer stress drop values between nodes later
     // yoder: we want to experiment with modified models for stress drop calculations. we migh need mean slip:
     // note: this makes a big mess if we run on multi-processors. either do an mpigether (or something), or output stress_drop
     //   from wherever UpdateBlockStress::init() is initially called.
-    double mean_slip_rate = 0.;
-    double total_slip_rate = 0.;
-    int j_counter = 0;
-    for (nt=sim->begin(); nt!=sim->end(); ++nt, ++j_counter) {
-        total_slip_rate += nt->slip_rate();
-    }
-    float n_slips = float(j_counter);
-    mean_slip_rate = total_slip_rate/n_slips;
+    //
     // yoder (stress drop output):
     std::ofstream stress_drop_output;
     stress_drop_output.open("stress_drops.csv");

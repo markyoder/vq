@@ -168,8 +168,8 @@ class Events(object):
         #
         try:
             # intercept, slope
-            lM = numpy.log10(numpy.abs(self.events['mean_slip']))
-            a,b = scipy.optimize.curve_fit(lambda x,a,b: a + b*x, self.events['event_magnitude'], lM)
+            lS = numpy.log10(numpy.abs(self.events['mean_slip']))
+            a,b = scipy.optimize.curve_fit(lambda x,a,b: a + b*x, self.events['event_magnitude'], lS)
             print ("fits: %f, %f" % (a,b))
             inv_log = lambda x: 10.**(a + b*x)
             X = [[0], self.events['event_magnitude'][-1]]
@@ -178,11 +178,14 @@ class Events(object):
         except:
         	print("fit to data failed...")
         #
-        ax.plot(self.events['event_magnitude'], numpy.abs(self.events['mean_slip']), '.')
-        #
+        #ax.plot(self.events['event_magnitude'], numpy.abs(self.events['mean_slip']), '.')
+        ax.plot(*zip(*[[m,abs(s)] for m,s in zip(self.events['event_magnitude'], self.events['mean_slip']) if s<0.]), marker='.', ls='', label='neg')
+        ax.plot(*zip(*[[m,abs(s)] for m,s in zip(self.events['event_magnitude'], self.events['mean_slip']) if s>0.]), marker='.', ls='', label='pos')
+        
         plt.title('Slip-magnitude scaling')
         plt.xlabel('Event magnitude $m$', size=18)
         plt.ylabel('Event slip $s$', size=18)
+        plt.legend(loc=0, numpoints=1)
     
     def plot_moment_mag(self, fignum=0, event_ids=None, block_ids=None):
     	# TODO: eventually allow event, block_id filters.
@@ -216,16 +219,16 @@ class Events(object):
             #
             X = [self.events['event_magnitude'][0], self.events['event_magnitude'][-1]]
             inv_log = lambda x: 10.**(a_0 + b_0*x)
-            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_0,b_0))
+            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_0,b_0), color='b')
             inv_log = lambda x: 10.**(a_1 + b_1*x)
-            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_1,b_1))
+            ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_1,b_1), colog='g')
         except:
 			print("fit to area scaling data failed.")
         
         
         #
-        ax.plot(self.events['event_magnitude'], self.events['area'], '.')
-        ax.plot(self.events['event_magnitude'], self.events['area_prime'], '.')
+        ax.plot(self.events['event_magnitude'], self.events['area'], '.', color='b')
+        ax.plot(self.events['event_magnitude'], self.events['area_prime'], '.', color='g')
         
         
         

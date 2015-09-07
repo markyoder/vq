@@ -63,12 +63,14 @@ void RunEvent::processBlocksOrigFail(Simulation *sim, quakelib::ModelSweeps &swe
             Block &b = sim->getBlock(*fit);
             //
             // calculate the drop in stress from the failure
-            stress_drop = sim->getCFF0(gid) - sim->getCFF(gid);
+            //stress_drop = sim->getCFF0(gid) - sim->getCFF(gid);
 
-            if (!stress_drop) stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
+            //if (!stress_drop) stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
+            stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
 
             // Slip is in m
             slip = (stress_drop/sim->getSelfStresses(gid));
+
 
             //if (slip < 0) slip = 0;		// yoder: here, i think we need to decide if: (we don't allow negative slip AND we dont' allow positive stress drops) OR,
                                                   // we DO allow (negative stress drop AND negative slip).
@@ -274,7 +276,6 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         //
         double slip = x[i] - sim->getSlipDeficit(*it);
 
-        //
         // yoder: let's try pulling all the slip>0 rules. we do, after all have positive stress drops...
         //if (slip > 0) {
         if (true) {
@@ -290,6 +291,7 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
                                    sim->getNormalStress(*it));
             //
             sim->setSlipDeficit(*it, sim->getSlipDeficit(*it)+slip);
+            //
         }
     }
 
