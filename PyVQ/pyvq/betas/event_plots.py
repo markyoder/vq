@@ -240,8 +240,18 @@ class Events(object):
         ax.set_yscale('log')
         ax.set_xscale('log')
         #
-        ax.plot(*zip(*[[abs(s), a] for m,s,a in zip(self.events['event_magnitude'], self.events['mean_slip'], self.events['area']) if s<0.]), marker='.', ls='', label='neg')
-        ax.plot(*zip(*[[abs(s), a] for m,s,a in zip(self.events['event_magnitude'], self.events['mean_slip'], self.events['area']) if s>0.]), marker='.', ls='', label='pos')
+        ax.plot(*zip(*[[abs(s), a] for s,a in zip(self.events['mean_slip'], self.events['area']) if s<0.]), marker='.', ls='', label='neg')
+        ax.plot(*zip(*[[abs(s), a] for s,a in zip(self.events['mean_slip'], self.events['area']) if s>0.]), marker='.', ls='', label='pos')
+        #
+        # try to fit:
+        try:
+            S_fit, A_fit = zip(*[[abs(s), abs(a)] for s,a in zip(self.events['mean_slip'], self.events['area']) if s!=0. and a!=0.])
+            a,b = scipy.optimize.curve_fit(lambda x,a,b: a+b*x, X_fit, Y_fit)
+            X = numpy.array(numpy.log10([min(self.events['mean_slip'][0]), max(self.events['mean_slip'][0])]))
+            Y = 10.**(a + b*X)
+            plt.plot(X,Y, '.-')
+        except:
+            print("fit failed.")
         #
         plt.title('Slip-Area')
         ax.set_xlabel('Event area $A$', size=18)
@@ -279,7 +289,7 @@ class Events(object):
             print ("fits_0: %f, %f" % (a_0,b_0))
             print ("fits_1: %f, %f" % (a_1,b_1))
             #
-            X = [self.events['event_magnitude'][0], self.events['event_magnitude'][-1]]
+            X = [min(self.events['event_magnitude']), max(self.events['event_magnitude'])]
             inv_log = lambda x: 10.**(a_0 + b_0*x)
             ax.plot(X, [inv_log(x) for x in X], '.-', lw=2, label='full_area: a=%.3f, b=%.3f' % (a_0,b_0), color='b')
             inv_log = lambda x: 10.**(a_1 + b_1*x)
