@@ -2161,6 +2161,12 @@ class Distributions:
         y_data = np.array([pow(10,a+b*m) for m in x_data])
         #y_err  = np.array([log_10*y_data[i]*np.sqrt(sig_a**2 + sig_b**2 * x_data[i]**2) for i in range(len(x_data))])
         return x_data, y_data
+#
+if __name__ != "__main__":
+    # yoder:
+    # when run as a command-line, switch pyplot to "background" mode, but permit interactive mode for... well, interactive
+    # mode.
+    plt.ion()
 
 if __name__ == "__main__":
     # yoder:

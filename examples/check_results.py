@@ -15,11 +15,13 @@ except ImportError:
 
 def check_self_consistent(events):
     error = False
+    # yoder, 22 sept. 2015: calculate moment from slip, but then record/compare absolute moment. probably, moment should be aggregated using abs(slip)... 
+    # at least for some applications
     for event in events:
         elements = event.getInvolvedElements()
         element_sweep_slip_sums = {}
         for elem_id in elements: element_sweep_slip_sums[elem_id] = 0
-        summed_moment = 0
+        summed_moment = 0.
         for sweep in event.getSweeps():
             element_sweep_slip_sums[sweep._element_id] += sweep._slip
             summed_moment += sweep._slip*sweep._area*sweep._mu
@@ -37,11 +39,23 @@ def check_self_consistent(events):
         # Confirm that the event magnitude is equal to the value determined from the sweeps
         # yoder: including the 1e7 term in the log argument can cause problems for really big numbers... which is likely indicative of a problem in and
         # of itself, but for now, let's just take it out so we can handle bigger numbers.
-        #summed_mag = (2.0/3.0)*math.log10(1e7*summed_moment) - 10.7
-        summed_mag = (2.0/3.0)*(7.0 + math.log10(summed_moment)) - 10.7
+        
+        summed_moment = abs(summed_moment)
+        if summed_moment<=0.0: 
+            tmp_event_moment = 10.**(1.5*(event.getMagnitude()+10.7)-7.) 
+            print("ERROR: event_magnitude: %f" % event.getMagnitude())
+            print("ERROR: summed_moment: %f/%f (%f) " % (summed_moment, tmp_event_moment, event.getMagnitude()))
+            summed_moment=None
+        else:
+            # note: this is sort of a dumb way to write the mag-moment relationship, namely the ((2/3)*7 - 10.7) bit, but it was originally meant to appear
+            # more consistent with contemporary moment-mag literature.
+            #summed_mag = (2.0/3.0)*math.log10(1e7*summed_moment) - 10.7
+            summed_mag = (2.0/3.0)*(7.0 + math.log10(summed_moment)) - 10.7
         #
-        if abs(event.getMagnitude()-summed_mag) > 1e-5:
-            print("ERROR: Recorded magnitude and summed sweep magnitude is not equal for event", event.event_num)
+        if summed_moment==None or abs(event.getMagnitude()-summed_mag) > 1e-5:
+        #if abs(event.getMagnitude()-summed_mag) > 1e-5:
+            #print("ERROR: Recorded magnitude and summed sweep magnitude is not equal for event", event.event_num)
+            print("ERROR: Recorded magnitude and summed sweep magnitude is not equal for event", event.getEventNumber())
             error = True
 
     return error

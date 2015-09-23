@@ -208,7 +208,6 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
                 A[i*num_global_failed+n] -= sim->getFriction(*it)*sim->getGreenNormal(*it, jt->first);
             }
         }
-
         //
         // yoder: here is (i think) where we might change our rupture physics, for example to use a 1/v (in our case, probably 1/slip) type friction
         // law. for example, something like float frict = sim->getFriction*(1/(1+slip/slip_0))
@@ -219,6 +218,7 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         ///// Schultz:
         // Compute the dynamic stress drop, only use it if current event area is smaller
         //    than the element's section area. Don't forget stress drops are negative!
+        /*
         if (sim->doDynamicStressDrops()) {
             // If the current event area is bigger than the section area, use the full stress drop
             if (current_event_area >= sim->getSectionArea(sim->getBlock(gid).getSectionID())) {
@@ -230,6 +230,19 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
             }
         } else {
             stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
+        }
+        */
+        if (sim->doDynamicStressDrops()) {
+            // If the current event area is bigger than the section area, use the full stress drop
+            if (current_event_area >= sim->getSectionArea(sim->getBlock(*it).getSectionID())) {
+                stress_drop = sim->getStressDrop(*it) - sim->getCFF(*it);
+            } else {
+                // If the current area is smaller than the section area, scale the stress drop
+                dynamicStressDrop = sim->computeDynamicStressDrop(*it, current_event_area);
+                stress_drop = dynamicStressDrop - sim->getCFF(*it);
+            }
+        } else {
+            stress_drop = sim->getStressDrop(*it) - sim->getCFF(*it);
         }
         
         //b[i] = sim->getStressDrop(*it) - sim->getCFF(*it);
@@ -256,7 +269,7 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
                 // MPI_Recv(in_buff{out}, in_len, mpi_dtype, src_node, tag, comm, status{out})
                 // note that in_buff and status are technically "output" parameters for the MPI_Recv function; we read data into in_buff by
                 // calling MPI_Recv()
-                //printf("**Debug[%d/%d]: A[],b MPI_Recv root-node blocking...\n", sim->getNodeRank(), getpid());
+                //
                 MPI_Recv(&(fullA[i*num_global_failed]), num_global_failed, MPI_DOUBLE, jt->second, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 MPI_Recv(&(fullb[i]), 1, MPI_DOUBLE, jt->second, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 #else
@@ -587,7 +600,7 @@ void RunEvent::processStaticFailure(Simulation *sim) {
             final_sweep = false;
         } else {
             more_blocks_to_fail = sim->blocksToFail(!local_failed_elements.empty());
-
+            //
             if (!more_blocks_to_fail) final_sweep = true;
         }
 

@@ -227,8 +227,8 @@ void UpdateBlockStress::init(SimFramework *_sim) {
     stressRecompute();
 
     // printing for debug
-    for (nt=sim->begin(); nt!=sim->end(); ++nt) {
-        std::cout << nt->stress_drop() << std::endl;
+    //for (nt=sim->begin(); nt!=sim->end(); ++nt) {
+    //    std::cout << nt->stress_drop() << std::endl;
     }
 
 }

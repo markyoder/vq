@@ -793,7 +793,11 @@ namespace quakelib {
                     moment += it->_slip*it->_mu*it->_area;
                 }
 
-                _data._event_magnitude = (2.0/3.0)*log10(1e7*moment) - 10.7;
+                // yoder: getting zero and negative slip events. let's start by catching the negative slip events and *correctly* (??)
+                // calculating the moment from abs(slip) -- effectively anyway:
+                //_data._event_magnitude = (2.0/3.0)*log10(1e7*moment) - 10.7;
+                _data._event_magnitude = (2.0/3.0)*log10(1e7*std::abs(moment)) - 10.7;
+                
             }
 
             //! Get the total amount a given block slipped during this event
