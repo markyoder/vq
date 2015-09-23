@@ -111,7 +111,9 @@ ENDFOREACH(NPROC ${NUM_PROCS})
 
 # --------------  Two Separate Faults  -------------------
 
-SET(RESOLUTIONS_TWO 6000 3000)
+#SET(RESOLUTIONS_TWO 6000 3000)
+# yoder: add a bunch more...
+SET(RESOLUTIONS_TWO 6000 3000 1500 1000)
 SET(METHOD_INTEREVENT_TWO 50 0 0)
 
 FOREACH(TAPER_IND RANGE ${NUM_TAPER})
@@ -161,6 +163,8 @@ FOREACH(TAPER_IND RANGE ${NUM_TAPER})
         # Check that the mean slip is near our expectations
         #    These two faults have same slip rate as single fault, so using
         #       same mean slip values
+        # yoder:
+        # TODO: this should be, at least nearly, equal for all element size parameterizations.
         IF (NOT ${MEANSLIP} EQUAL 0)
             ADD_TEST(NAME test_two_slip_${TAPER}_${RES} WORKING_DIRECTORY ${TEST_DIR}
                 COMMAND ${PYTHON_EXECUTABLE} ${CHECK_SCRIPT} --event_file ${EVENT_FILE_TWO} --sweep_file ${SWEEP_FILE_TWO} --mean_slip ${MEANSLIP})
@@ -171,13 +175,14 @@ FOREACH(TAPER_IND RANGE ${NUM_TAPER})
 
         # Check that the mean interevent time is near our expectations
         # TODO: These tests fail, Kasey needs to figure out why
-        #IF (NOT ${INTEREVENT} EQUAL 0)
-        #    ADD_TEST(NAME test_two_interevent_${TAPER}_${RES} WORKING_DIRECTORY ${TEST_DIR}
-        #        COMMAND ${PYTHON_EXECUTABLE} ${CHECK_SCRIPT} --event_file ${EVENT_FILE_TWO} --sweep_file ${SWEEP_FILE_TWO} --mean_interevent ${INTEREVENT})
-        #    SET_TESTS_PROPERTIES (test_two_interevent_${TAPER}_${RES} PROPERTIES
-        #       DEPENDS run_two_${TAPER}_${RES}
-        #       ENVIRONMENT "PYTHONPATH=${QUAKELIB_BINARY_DIR}/python/")
-        #ENDIF(NOT ${INTEREVENT} EQUAL 0)             
+        IF (NOT ${INTEREVENT} EQUAL 0)
+            ADD_TEST(NAME test_two_interevent_${TAPER}_${RES} WORKING_DIRECTORY ${TEST_DIR}
+                COMMAND ${PYTHON_EXECUTABLE} ${CHECK_SCRIPT} --event_file ${EVENT_FILE_TWO} --sweep_file ${SWEEP_FILE_TWO} --mean_interevent ${INTEREVENT})
+            SET_TESTS_PROPERTIES (test_two_interevent_${TAPER}_${RES} PROPERTIES
+               DEPENDS run_two_${TAPER}_${RES}
+               ENVIRONMENT "PYTHONPATH=${QUAKELIB_BINARY_DIR}/python/")
+        ENDIF(NOT ${INTEREVENT} EQUAL 0)
+        #
     ENDFOREACH(RES ${RESOLUTIONS_TWO})
 ENDFOREACH(TAPER_IND RANGE ${NUM_TAPER})
 
