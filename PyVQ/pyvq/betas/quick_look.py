@@ -104,6 +104,7 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		ax=f.gca()
 		ax.set_yscale('log')
 		ax.set_ylabel('interval $\\Delta t_{m%.2f}$' % m0)
+		#ax.plot(*[zip(*big_mag_dts)[0:2]], color='g', marker='.', ls='', zorder=7, lw=1.5, label='$m>%.2f intervals')
 		ax.plot(zip(*big_mag_dts)[0], zip(*big_mag_dts)[1], 'g.-', zorder=7, lw=1.5, label='$m>%.2f intervals')
 		ax_mags = ax.twinx()		
 		ax_mags.vlines(*(zip(*big_mags)), ymax=[3.0 for x in big_mags], color='m', lw=1, zorder=1, label='m>%.2f' % m0, alpha=.5)
@@ -118,8 +119,10 @@ def quick_figs(vc_data_file=default_events, fnum_0=0, events_start=0, events_end
 		ax=f.gca()
 		dolog=True
 		normed = False
-		X = numpy.log10(dts_sorted)
-		ax.hist(X, bins=200, range=[min(X), max(X)], log=dolog, histtype='stepfilled', normed=normed)
+		return dts_sorted
+		X = numpy.log10(filter(lambda x:x>0, dts_sorted))
+		#
+		ax.hist(X, bins=min(200, len(X)/10), range=[min(X), max(X)], log=dolog, histtype='stepfilled', normed=normed)
 		h_cum = ax.hist(X, bins=200, range=[min(X), max(X)], log=dolog, histtype='step', cumulative=True, normed=normed)
 		N = float(len(X))
 		if normed: N=1.0
