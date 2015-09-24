@@ -218,20 +218,6 @@ void RunEvent::processBlocksSecondaryFailures(Simulation *sim, quakelib::ModelSw
         ///// Schultz:
         // Compute the dynamic stress drop, only use it if current event area is smaller
         //    than the element's section area. Don't forget stress drops are negative!
-        /*
-        if (sim->doDynamicStressDrops()) {
-            // If the current event area is bigger than the section area, use the full stress drop
-            if (current_event_area >= sim->getSectionArea(sim->getBlock(gid).getSectionID())) {
-                stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
-            } else {
-                // If the current area is smaller than the section area, scale the stress drop
-                dynamicStressDrop = sim->computeDynamicStressDrop(gid, current_event_area);
-                stress_drop = dynamicStressDrop - sim->getCFF(gid);
-            }
-        } else {
-            stress_drop = sim->getStressDrop(gid) - sim->getCFF(gid);
-        }
-        */
         if (sim->doDynamicStressDrops()) {
             // If the current event area is bigger than the section area, use the full stress drop
             if (current_event_area >= sim->getSectionArea(sim->getBlock(*it).getSectionID())) {
